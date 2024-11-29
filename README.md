@@ -1,1 +1,1 @@
-### Unsupervised Image Segmentation With GNNs
+# Unsupervised Image Segmentation With GNNs
