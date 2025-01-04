@@ -1,5 +1,6 @@
-from .dataset import (
+from .pan_nuke import (
     PanNukeDatasset,
     LazyNumpyArrayReader,
-    ISICDataset
 )
+
+from .isic import ISICDataset

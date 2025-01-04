@@ -1,12 +1,14 @@
 import torch
 import numpy as np
+import sys
+sys.path.append('../..')
 from torch import optim, Tensor
 from dataclasses import dataclass, field
 from typing import Optional
 from PIL import Image
 from tqdm.auto import tqdm
 from typing import Literal
-from src.models.graph_pool import GraphPool,ActivationType
+from src.models import GraphPool,ActivationType
 from src.feature_extraction import FeatureExtractor,FeatureExtractionConfig
 from src.utils import graph_to_mask, adjacency_to_edge_list, bilateral_solver_output
 
@@ -100,13 +102,20 @@ class DeepCut:
 
         return loss
     
-    def fit(self, model : GraphPool, X : Tensor, A : Tensor, lr : float, n_iters : int) -> Tensor:
+    def fit(self, 
+        model : GraphPool, 
+        X : Tensor, 
+        A : Tensor, 
+        lr : float, 
+        n_iters : int,
+        show_progress : bool = True
+    ) -> Tensor:
 
         model.train()
 
         optimizer = optim.AdamW(model.parameters(), lr=lr)
 
-        it = tqdm(range(n_iters), desc='Optimizing')
+        it = tqdm(range(n_iters), desc='Optimizing') if show_progress else range(n_iters)
 
         edge_index, edge_weight = adjacency_to_edge_list(A)
 
@@ -119,15 +128,17 @@ class DeepCut:
             loss.backward()
             optimizer.step()
 
-            it.set_postfix(loss=loss.item())
+            if show_progress:
+                it.set_postfix(loss=loss.item())
 
         return S
     
     def segment(self, 
-        image : Image.Image,
+        image : Image.Image | Tensor,
         lr : float,
         n_iters : int,
-    ) -> tuple[Image.Image,Image.Image,Image.Image]:
+        show_progress : bool = True
+    ) -> tuple[np.ndarray,np.ndarray]:
         
         self.reset_parameters()
 
@@ -138,7 +149,7 @@ class DeepCut:
         X = X.to(self.config.device).clone()  
         A = A.to(self.config.device)
 
-        S = self.fit(self.graph_pool1, X, A, lr, n_iters)
+        S = self.fit(self.graph_pool1, X, A, lr, n_iters, show_progress)
 
         mask = graph_to_mask(
             S=S.argmax(dim=-1),
@@ -150,13 +161,13 @@ class DeepCut:
 
         S = S.detach().cpu().numpy()
 
-        mask = bilateral_solver_output(
+        _,mask = bilateral_solver_output(
             np.array(image),
             mask,
             36,
             6,
             6
-        )[1]
+        )
 
         return mask, S
 

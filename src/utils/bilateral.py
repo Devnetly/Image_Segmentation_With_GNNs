@@ -151,6 +151,7 @@ class BilateralSolver(object):
 
 
 def bilateral_solver_output(img, target, sigma_spatial=24, sigma_luma=4, sigma_chroma=4):
+
     reference = img
     h, w = target.shape
     confidence = np.ones((h, w)) * 0.999
@@ -181,6 +182,7 @@ def bilateral_solver_output(img, target, sigma_spatial=24, sigma_luma=4, sigma_c
 
     nb_pixel = [np.sum(labeled == i) for i in range(nr_objects + 1)]
     pixel_order = np.argsort(nb_pixel)
+    
     try:
         binary_solver = labeled == pixel_order[-2]
     except:
