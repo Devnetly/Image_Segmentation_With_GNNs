@@ -39,13 +39,23 @@ class GraphPool(nn.Module):
                         
         self.mlp = nn.Sequential(
             nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.Dropout(0.25),
             Activation(self.activation),
             nn.Linear(self.hidden_dim, self.num_clusters)
         )
 
+    def reset_parameters(self) -> None:
+
+        for layer in self.layers:
+            layer.reset_parameters()
+
+        for layer in self.mlp:
+            if hasattr(layer, 'reset_parameters'):
+                layer.reset_parameters()
+
     def forward(self, X : Tensor, edge_index : Tensor, edge_weight : Tensor) -> Tensor:
         
-        for i,layer in enumerate(self.layers):
+        for _,layer in enumerate(self.layers):
             X = layer(X,edge_index,edge_weight)
             X = self.activation_fn(X)
         

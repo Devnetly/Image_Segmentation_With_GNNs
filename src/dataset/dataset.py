@@ -1,10 +1,23 @@
 import numpy as np
 import os
 from torch.utils.data import Dataset
+from PIL import Image
+from typing import Callable, Optional
 
 class LazyNumpyArrayReader(Dataset):
 
     def __init__(self, root : str):
+        """
+            A class to read large .npy files without loading them into memory.
+
+            Args :
+            - root : str : Path to the .npy file.
+
+            Returns:
+            - None
+        """
+
+
         super().__init__()
 
         self.root = root
@@ -21,12 +34,13 @@ class LazyNumpyArrayReader(Dataset):
         """
         Get the shape and data type of a large .npy file without loading it into memory.
 
-        Parameters:
-            file_path (str): Path to the .npy file.
+        Args:
+            - file_path : str : Path to the .npy file.
 
         Returns:
-            dict: A dictionary containing the shape and data type of the array.
+            - dict : A dictionary containing the shape and data type of the array.
         """
+
         with open(file_path, 'rb') as f:
             # Read the version and header
             version = np.lib.format.read_magic(f)
@@ -77,5 +91,52 @@ class PanNukeDatasset(Dataset):
         return {
             "image": image,
             "type": type,
+            "mask": mask
+        }
+
+
+class ISICDataset(Dataset):
+
+    def __init__(self, 
+        root : str,
+        img_transform : Optional[Callable] = None,
+        mask_transform : Optional[Callable] = None
+    ) -> None:
+        super().__init__()
+
+        self.root = root
+        self.files = self._get_files()
+        self.img_transform = img_transform
+        self.mask_transform = mask_transform
+
+    def _get_files(self) -> list[str]:
+
+        files = os.listdir(self.root)
+        files = [os.path.splitext(file)[0].replace("_Segmentation","") for file in files]
+        files = list(set(files))
+        files = sorted(files)
+
+        return files
+    
+    def __len__(self) -> int:
+        return len(self.files)
+    
+    def __getitem__(self, idx : int) -> dict:
+
+        filename = self.files[idx]
+        img_path = os.path.join(self.root, f"{filename}.jpg")
+        mask_path = os.path.join(self.root, f"{filename}_Segmentation.png")
+
+        image = Image.open(img_path).convert("RGB")
+        mask = Image.open(mask_path).convert("L")
+
+        if self.img_transform:
+            image = self.img_transform(image)
+
+        if self.mask_transform:
+            mask = self.mask_transform(mask)
+
+        return {
+            "image": image,
             "mask": mask
         }

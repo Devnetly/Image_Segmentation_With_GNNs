@@ -54,3 +54,11 @@ def adjacency_to_edge_list(W : Tensor) -> tuple[Tensor,Tensor]:
     edge_weight = W[edge_index[0], edge_index[1]]
 
     return edge_index, edge_weight
+
+def seed_everything(seed : int) -> None:
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False

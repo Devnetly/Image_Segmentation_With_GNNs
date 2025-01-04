@@ -1,4 +1,5 @@
 from .dataset import (
     PanNukeDatasset,
-    LazyNumpyArrayReader
+    LazyNumpyArrayReader,
+    ISICDataset
 )

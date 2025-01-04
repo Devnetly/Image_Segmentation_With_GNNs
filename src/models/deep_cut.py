@@ -57,9 +57,14 @@ class DeepCut:
             num_clusters=2
         ).to(self.config.device) # Background segmentation
 
+    def reset_parameters(self) -> None:
+        self.graph_pool1.reset_parameters()
+        self.graph_pool2.reset_parameters()
+        self.graph_pool3.reset_parameters()
+
     def create_adjacency(self, features : Tensor) -> Tensor:
         
-        W = features @ features.T
+        W = features @ features.t()
 
         if self.config.cut:
             W = W * (W > 0)
@@ -85,7 +90,7 @@ class DeepCut:
         St_S = torch.matmul(S.t(), S)
         St_S = St_S / torch.norm(St_S)
 
-        I = torch.eye(S.size(1), device=S.device, dtype=S.dtype).to(S.device)  
+        I = torch.eye(S.size(1), device=S.device, dtype=S.dtype) 
         I = I / torch.norm(I)
 
         orth_loss = torch.norm(St_S - I)
@@ -116,8 +121,6 @@ class DeepCut:
 
             it.set_postfix(loss=loss.item())
 
-        S = S.argmax(dim=-1)
-
         return S
     
     def segment(self, 
@@ -125,6 +128,8 @@ class DeepCut:
         lr : float,
         n_iters : int,
     ) -> tuple[Image.Image,Image.Image,Image.Image]:
+        
+        self.reset_parameters()
 
         processed_image = self.feature_extractor.process(image)
         X = self.feature_extractor.extract(processed_image).squeeze(0)
@@ -136,7 +141,7 @@ class DeepCut:
         S = self.fit(self.graph_pool1, X, A, lr, n_iters)
 
         mask = graph_to_mask(
-            S=S,
+            S=S.argmax(dim=-1),
             processed_size=processed_image.shape[2:],
             og_size=image.size,
             cc=False, 
