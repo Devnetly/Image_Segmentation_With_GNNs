@@ -11,12 +11,13 @@ from typing import Literal
 from src.models import GraphPool,ActivationType
 from src.feature_extraction import FeatureExtractor,FeatureExtractionConfig
 from src.utils import graph_to_mask, adjacency_to_edge_list, bilateral_solver_output
+from typing import Optional
 
 @dataclass
 class DeepCutConfig:
     cut : bool = True
     alpha : Optional[float] = None
-    feature_extractor_config : FeatureExtractionConfig = field(default_factory=FeatureExtractionConfig)
+    feature_extractor_config : Optional[FeatureExtractionConfig] = field(default_factory=FeatureExtractionConfig)
     activation : ActivationType = 'leaky_relu'
     num_layers : int = 2
     conv_type : Literal['gcn','gat'] = 'gcn'
@@ -30,7 +31,10 @@ class DeepCut:
         super().__init__()
 
         self.config = config
-        self.feature_extractor = FeatureExtractor(config.feature_extractor_config)
+        self.feature_extractor = None
+
+        if config.feature_extractor_config is not None:
+            self.feature_extractor = FeatureExtractor(config.feature_extractor_config)
 
         self.graph_pool1 = GraphPool(
             activation=config.activation,
@@ -168,6 +172,8 @@ class DeepCut:
             6,
             6
         )
+
+        mask = mask.astype(np.uint8) * 255
 
         return mask, S
 
