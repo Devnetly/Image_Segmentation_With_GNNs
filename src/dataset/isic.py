@@ -8,7 +8,8 @@ class ISICDataset(Dataset):
     def __init__(self, 
         root : str,
         img_transform : Optional[Callable] = None,
-        mask_transform : Optional[Callable] = None
+        mask_transform : Optional[Callable] = None,
+        return_mask : bool = False,
     ) -> None:
         super().__init__()
 
@@ -16,6 +17,7 @@ class ISICDataset(Dataset):
         self.files = self._get_files()
         self.img_transform = img_transform
         self.mask_transform = mask_transform
+        self.return_mask = return_mask
 
     def _get_files(self) -> list[str]:
 
@@ -38,13 +40,15 @@ class ISICDataset(Dataset):
         image = Image.open(img_path).convert("RGB")
         mask = Image.open(mask_path).convert("L")
 
-        if self.img_transform:
-            image = self.img_transform(image)
-
-        if self.mask_transform:
-            mask = self.mask_transform(mask)
-
-        return {
-            "image": image,
-            "mask": mask
+        data = {
+            'image': image,
+            'mask': mask
         }
+
+        if self.img_transform:
+            data['image'] = self.img_transform(data['image'])
+
+        if self.mask_transform and self.return_mask:
+            data['mask'] = self.mask_transform(data['mask'])
+
+        return data

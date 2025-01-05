@@ -1,14 +1,38 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from torch.utils.data import Dataset
-# from src.models import DeepCut
-from tqdm.auto import tqdm
-from typing import Callable
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
 def iou(pred : np.ndarray, target : np.ndarray) -> float:
     intersection = np.logical_and(pred, target).sum()
     union = np.logical_or(pred, target).sum()
     return intersection / union
+
+def dice(pred : np.ndarray, target : np.ndarray) -> float:
+    IoU = iou(pred, target)
+    return 2 * IoU / (IoU + 1)
+
+def pixle_wise_accuracy(pred : np.ndarray, target : np.ndarray) -> float:
+    return accuracy_score(target.flatten(), pred.flatten())
+
+def pixel_wise_precision(pred : np.ndarray, target : np.ndarray) -> float:
+    return precision_score(target.flatten(), pred.flatten())
+
+def pixel_wise_recall(pred : np.ndarray, target : np.ndarray) -> float:
+    return recall_score(target.flatten(), pred.flatten())
+
+def pixel_wise_f1_score(pred : np.ndarray, target : np.ndarray) -> float:
+    return f1_score(target.flatten(), pred.flatten())
+
+def compute_metrics(pred : np.ndarray,target : np.ndarray) -> dict:
+    
+    return {
+        "IoU": iou(pred, target),
+        "Dice": dice(pred, target),
+        "Pixel-wise Accuracy": pixle_wise_accuracy(pred, target),
+        "Pixel-wise Precision": pixel_wise_precision(pred, target),
+        "Pixel-wise Recall": pixel_wise_recall(pred, target),
+        "Pixel-wise F1 Score": pixel_wise_f1_score(pred, target)
+    }
 
 def display_segmentation_results(
     sample : dict,
@@ -37,36 +61,3 @@ def display_segmentation_results(
     axes[3].imshow(object_)
     axes[3].set_title("Object")
     axes[3].axis('off')
-
-"""def evaluate(
-    dataset : Dataset,
-    deep_cut : DeepCut,
-    metrics : dict[str,Callable]
-) -> None:
-    
-    values = {
-        metric_name : 0.0 for metric_name in metrics.keys()
-    }
-
-    it = tqdm(dataset)
-    
-    for i,sample in enumerate(it):
-
-        pred, _ = deep_cut.segment(sample['image'], lr=0.01, n_iters=20, show_progress=False)
-        pred = pred.astype(np.uint8)
-
-        target = np.array(sample['mask']).astype(np.uint8)
-
-        locals = dict()
-
-        for metric_name, metric in metrics.items():
-            locals[metric_name] = metric(pred, target)
-            values[metric_name] += locals[metric_name]
-
-        it.set_postfix(**locals)
-
-    for metric_name in metrics.keys():
-        values[metric_name] /= len(dataset)
-        print(f"{metric_name}: {values[metric_name]}")
-
-    return values"""

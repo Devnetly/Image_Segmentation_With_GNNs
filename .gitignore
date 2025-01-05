@@ -1,8 +1,10 @@
 data/**/*.npy
-data/**/*/.npz
-data/**/*/.csv
-data/**/*/.pt
-data/**/*/.pth
+data/**/*.npz
+data/**/*.csv
+data/**/*.pt
+data/**/*.pth
+data/**/*.jpg
+data/**/*.png
 notebooks/test.ipynb
 **/.ipynb_checkpoints/*
 **/__pycache__/*
