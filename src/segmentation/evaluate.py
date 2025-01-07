@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import json
 sys.path.append('../..')
-from src.segmentaion import DeepCut, DeepCutConfig
+from src.segmentation import Segmenter, SegmenterConfig, SegmentationType
 from src.feature_extraction import FeatureExtractionConfig
 from src.models import ActivationType
 from src.dataset import ISICDataset
@@ -31,11 +31,12 @@ class Config:
     resize : bool = True # whether to resize the image to the model's input size or keep the original size
 
     ### Model Configuration
-    cut : bool = True # whether to use NCUT or CC loss
+    segmentation_type : SegmentationType = 'ncut' # the type of the segmentation
+    threshold : float = 0.0 # In the case of DMON loss.
     alpha : Optional[float] = None # In the case of CC loss.
     activation : ActivationType = 'leaky_relu' # activation function
     num_layers : int = 1 # number of layers
-    conv_type : Literal['gcn','gat'] = 'gcn' # convolution type
+    conv_type : Literal['gcn','gat','arma'] = 'gcn' # convolution type
     hidden_dim : int = 64 # hidden dimension
     num_clusters : int = 2 # number of clusters
     device : str = 'cuda' if torch.cuda.is_available() else 'cpu' # device
@@ -48,7 +49,8 @@ class Config:
     data_dir : str = ISIC_DIR # the path to the data
     output_dir : str = 'output' # the path to save the output
 
-def main(config: Config):
+
+def evaluate(config: Config):
 
     seed_everything(config.seed)
 
@@ -60,8 +62,8 @@ def main(config: Config):
         resize = config.resize
     )
 
-    deep_cut_config = DeepCutConfig(
-        cut = config.cut,
+    deep_cut_config = SegmenterConfig(
+        cut = config.segmentation_type,
         alpha = config.alpha,
         feature_extractor_config = feature_extractor_config,
         activation = config.activation,
@@ -72,7 +74,7 @@ def main(config: Config):
         device = config.device
     )
 
-    deep_cut = DeepCut(deep_cut_config)
+    deep_cut = Segmenter(deep_cut_config)
 
     dataset = ISICDataset(root=config.data_dir,return_mask=True)
 
@@ -150,4 +152,4 @@ if __name__ == '__main__':
 
     config = Config(**vars(args))
 
-    main(config)
+    evaluate(config)

@@ -14,4 +14,5 @@ from .evaluation import (
     pixel_wise_recall,
     pixel_wise_f1_score,
     compute_metrics,
+    mncut
 )

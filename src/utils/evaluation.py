@@ -11,6 +11,23 @@ def dice(pred : np.ndarray, target : np.ndarray) -> float:
     IoU = iou(pred, target)
     return 2 * IoU / (IoU + 1)
 
+def mncut(pred : np.ndarray, W : np.ndarray) -> float:
+
+    pred = pred.flatten() # (N,)
+    n_clusters = len(np.unique(pred))
+    I = np.eye(n_clusters)
+    one_hot_pred = I[pred] # (N, n_clusters)
+
+    result = 0.0 
+
+    for i in range(n_clusters):
+        ncut_value = W[one_hot_pred[:, i].astype(bool), :][:, ~one_hot_pred[:, i].astype(bool)].sum()
+        assoc_value = W[one_hot_pred[:, i].astype(bool), :].sum()
+        result += ncut_value / assoc_value
+        
+
+    return result
+
 def pixle_wise_accuracy(pred : np.ndarray, target : np.ndarray) -> float:
     return accuracy_score(target.flatten(), pred.flatten())
 

@@ -19,12 +19,17 @@ class FeatureExtractionConfig:
     def __post_init__(self) -> None:
         self.stride = self.stride or int(''.join([c for c in self.model_name if c.isnumeric()]))
 
+@dataclass
+class ModelConfig:
+    dim : int
+    patch_size : int
+    stride : int
 
 class FeatureExtractor:
 
-    __dims__ = {
-        "facebook/dino-vits16" : 384,
-        "facebook/dino-vits8"  : 384
+    MODELS = {
+        "facebook/dino-vits16" : ModelConfig(dim=384,patch_size=16,stride=16),
+        "facebook/dino-vits8"  : ModelConfig(dim=384,patch_size=8,stride=8)
     }
 
     def __init__(self, config : FeatureExtractionConfig) -> None:
@@ -39,7 +44,7 @@ class FeatureExtractor:
         """
 
         self.config = config
-        self.dim = self.__dims__[config.model_name]
+        self.conf = self.MODELS[config.model_name]
         self.model : ViTModel = ViTModel.from_pretrained(config.model_name).to(config.device).eval()
         self.processor = ViTImageProcessor.from_pretrained(config.model_name)
         self.model.config
