@@ -146,6 +146,35 @@ class Segmenter:
             return self.dmon_loss(A, S)
         else:
             raise ValueError(f"Invalid segmentation type: {self.config.segmentation_type}")
+        
+    def dmon_adjacency(self, features : Tensor) -> Tensor:
+        
+        features = features / torch.norm(features, dim=-1, p=2, keepdim=True)
+        W = features @ features.t()
+        W = W >= self.config.threshold
+        W = W | torch.eye(W.size(0), device=W.device, dtype=W.dtype)
+        W = W.float()
+
+        print(W.mean())
+
+        return W
+    
+    def dmon_loss(self, A : Tensor, S : Tensor) -> Tensor:
+        
+        d = torch.sum(A, dim=-1)
+        m = torch.sum(A)
+
+        B = A - torch.ger(d, d) / (2 * m)
+
+        n,k = S.size()
+        k = torch.tensor(k, dtype=S.dtype, device=S.device)
+
+        modularity_term = (-1/(2*m)) * torch.trace(torch.mm(torch.mm(S.t(), B), S))
+        collapse_reg_term = (torch.sqrt(k)/n) * (torch.norm(torch.sum(S, dim=0), p='fro')) - 1
+
+        loss = modularity_term + collapse_reg_term
+
+        return loss
     
     def fit(self, 
         model : GraphPool, 
