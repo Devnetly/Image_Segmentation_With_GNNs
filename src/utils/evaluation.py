@@ -65,11 +65,11 @@ def display_segmentation_results(
     axes[0].set_title("Image")
     axes[0].axis('off')
 
-    axes[1].imshow(sample['mask'])
+    axes[1].imshow(sample['mask'], cmap='gray')
     axes[1].set_title("Ground Truth")
     axes[1].axis('off')
 
-    axes[2].imshow(mask)
+    axes[2].imshow(mask, cmap='gray')
     axes[2].set_title("Prediction")
     axes[2].axis('off')
 

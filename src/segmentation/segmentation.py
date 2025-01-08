@@ -155,8 +155,6 @@ class Segmenter:
         W = W | torch.eye(W.size(0), device=W.device, dtype=W.dtype)
         W = W.float()
 
-        print(W.mean())
-
         return W
     
     def dmon_loss(self, A : Tensor, S : Tensor) -> Tensor:
@@ -208,32 +206,51 @@ class Segmenter:
         return S
     
     def segment(self, 
-        image : Image.Image | Tensor,
-        lr : float,
-        n_iters : int,
+        image : Image.Image,
+        ignore : Optional[Tensor] = None,
+        lr : float = 0.001,
+        n_iters : int = 30,
         show_progress : bool = True
-    ) -> tuple[np.ndarray,np.ndarray]:
+    ) -> dict:
         
         self.reset_parameters()
 
         processed_image = self.feature_extractor.process(image)
         X = self.feature_extractor.extract(processed_image).squeeze(0)
+
+        N = X.size(0)
+
+        if ignore is not None:
+            X = X[ignore.to(X.device),:]
+
         A = self.create_adjacency(X)
 
         X = X.to(self.config.device).clone()  
         A = A.to(self.config.device)
 
         S = self.fit(self.graph_pool1, X, A, lr, n_iters, show_progress)
+        S = S.argmax(-1)
+
+
+        if ignore is not None:
+
+            C = torch.zeros(
+                size=(N,),
+                device=S.device,
+                dtype=S.dtype
+            )
+
+            C[ignore.to(X.device)] = S
+            
+            S = C
 
         mask = graph_to_mask(
-            S=S.argmax(dim=-1),
+            S=S,
             processed_size=processed_image.shape[2:],
             og_size=image.size,
             cc=False, 
             stride=self.config.feature_extractor_config.stride
         )
-
-        S = S.detach().cpu().numpy()
 
         _,mask = bilateral_solver_output(
             np.array(image),
@@ -245,14 +262,8 @@ class Segmenter:
 
         mask = mask.astype(np.uint8) * 255
 
-        return mask, S
-
-        X_f = X[S.argmax(dim=-1) == 1]
-        A_f = self.create_adjacency(X_f)
-
-        S_f = self.fit(self.graph_pool2, X_f, A_f, lr, n_iters)
-
-        X_b = X[S.argmax(dim=-1) == 0]
-        A_b = self.create_adjacency(X_b)
-
-        S_b = self.fit(self.graph_pool3, X_b, A_b, lr, n_iters)
+        return {
+            'mask' : mask,
+            'S' : S.detach().cpu().numpy(),
+            'A' : A.detach().cpu().numpy(),
+        }

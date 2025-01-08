@@ -12,7 +12,7 @@ from src.dataset import ISICDataset
 from src.utils import iou, dice, pixle_wise_accuracy, seed_everything
 from dataclasses import dataclass, asdict
 from typing import Optional, Literal
-from definitions import ISIC_DIR
+from definitions import ISIC_DIR, OUTPUTS_DIR
 from tqdm.auto import tqdm
 from argparse import ArgumentParser
 from PIL import Image
@@ -32,18 +32,18 @@ class Config:
 
     ### Model Configuration
     segmentation_type : SegmentationType = 'ncut' # the type of the segmentation
-    threshold : float = 0.0 # In the case of DMON loss.
-    alpha : Optional[float] = None # In the case of CC loss.
-    activation : ActivationType = 'leaky_relu' # activation function
+    threshold : float = 0.7 # In the case of DMON loss.
+    alpha : Optional[float] = 5.0 # In the case of CC loss.
+    activation : ActivationType = 'silu' # activation function
     num_layers : int = 1 # number of layers
-    conv_type : Literal['gcn','gat','arma'] = 'gcn' # convolution type
-    hidden_dim : int = 64 # hidden dimension
+    conv_type : Literal['gcn','gat','arma'] = 'arma' # convolution type
+    hidden_dim : int = 32 # hidden dimension
     num_clusters : int = 2 # number of clusters
     device : str = 'cuda' if torch.cuda.is_available() else 'cpu' # device
 
     ### Training Configuration
-    lr : float = 0.01
-    n_iters : int = 10
+    lr : float = 0.001
+    n_iters : int = 30
 
     ### Data Configuration
     data_dir : str = ISIC_DIR # the path to the data
@@ -63,7 +63,7 @@ def evaluate(config: Config):
     )
 
     deep_cut_config = SegmenterConfig(
-        cut = config.segmentation_type,
+        segmentation_type = config.segmentation_type,
         alpha = config.alpha,
         feature_extractor_config = feature_extractor_config,
         activation = config.activation,
@@ -76,7 +76,7 @@ def evaluate(config: Config):
 
     deep_cut = Segmenter(deep_cut_config)
 
-    dataset = ISICDataset(root=config.data_dir,return_mask=True)
+    dataset = ISICDataset(root=config.data_dir, return_mask=True)
 
     metrics = {
         'filename': [],
@@ -88,15 +88,15 @@ def evaluate(config: Config):
 
     it = tqdm(dataset)
 
-    if not os.path.exists(config.output_dir):
-        os.makedirs(config.output_dir)
+    os.makedirs(os.path.join(OUTPUTS_DIR, config.output_dir),exist_ok=True)
 
     for i,sample in enumerate(it):
 
         image = sample['image']
         target = np.array(sample['mask'])
 
-        mask,_ = deep_cut.segment(image, config.lr, config.n_iters, show_progress=False)
+        result = deep_cut.segment(image, lr=config.lr, n_iters=config.n_iters, show_progress=False)
+        mask = result['mask']
 
         image = np.array(image).astype(np.uint8)
 
@@ -110,7 +110,7 @@ def evaluate(config: Config):
             iou_score = iou_score_inv
             metrics['flipped'][-1] = True
 
-        Image.fromarray(mask).save(os.path.join(config.output_dir,dataset.files[i]+os.path.extsep+'png'))
+        Image.fromarray(mask).save(os.path.join(OUTPUTS_DIR, config.output_dir+dataset.files[i]+os.path.extsep+'png'))
 
         dice_score = dice(mask, target)
         pixle_wise_accuracy_score = pixle_wise_accuracy(mask, target)
@@ -121,9 +121,9 @@ def evaluate(config: Config):
         metrics['pixle_wise_accuracy'].append(pixle_wise_accuracy_score)
 
     metrics = pd.DataFrame(metrics)
-    metrics.to_csv(os.path.join(config.output_dir,'metrics.csv'),index=False)
+    metrics.to_csv(os.path.join(OUTPUTS_DIR,config.output_dir,'metrics.csv'),index=False)
 
-    with open(os.path.join(config.output_dir,'config.json'),'w') as f:
+    with open(os.path.join(OUTPUTS_DIR, config.output_dir,'config.json'),'w') as f:
         json.dump(asdict(config),f)
     
 if __name__ == '__main__':
@@ -135,7 +135,8 @@ if __name__ == '__main__':
     parser.add_argument('--layer', type=int, default=Config.layer)
     parser.add_argument('--stride', type=int, default=Config.stride)
     parser.add_argument('--resize', type=bool, default=Config.resize)
-    parser.add_argument('--cut', type=bool, default=Config.cut)
+    parser.add_argument('--segmentation_type', type=str, default=Config.segmentation_type)
+    parser.add_argument('--threshold', type=float, default=Config.threshold)
     parser.add_argument('--alpha', type=float, default=Config.alpha)
     parser.add_argument('--activation', type=str, default=Config.activation)
     parser.add_argument('--num_layers', type=int, default=Config.num_layers)
