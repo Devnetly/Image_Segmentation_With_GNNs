@@ -198,6 +198,7 @@ class Segmenter:
         record_interval : Optional[int] = None,
         lr : float = 0.001,
         n_iters : int = 30,
+        postprocess : bool = True,
         show_progress : bool = True
     ) -> dict | list[dict]:
         
@@ -243,40 +244,42 @@ class Segmenter:
                 stride=self.config.feature_extractor_config.stride
             )
 
-            output_solver1,mask1 = bilateral_solver_output(
-                np.array(image),
-                mask,
-                48,
-                8,
-                8
-            )
+            if postprocess:
 
-            output_solver2,mask2 = bilateral_solver_output(
-                np.array(image),
-                1 - mask,
-                48,
-                8,
-                8
-            )
+                output_solver1,mask1 = bilateral_solver_output(
+                    np.array(image),
+                    mask,
+                    48,
+                    8,
+                    8
+                )
 
-            a = (S == 0).sum()
-            b = (S == 1).sum()
-            r = max(a,b) / min(a,b)
+                output_solver2,mask2 = bilateral_solver_output(
+                    np.array(image),
+                    1 - mask,
+                    48,
+                    8,
+                    8
+                )
 
-            a1 = (mask1 == 0).sum()
-            b1 = (mask1 == 1).sum()
-            r1 = max(a1,b1) / min(a1,b1)
+                a = (S == 0).sum()
+                b = (S == 1).sum()
+                r = max(a,b) / min(a,b)
 
-            a2 = (mask2 == 0).sum()
-            b2 = (mask2 == 1).sum()
-            r2 = max(a2,b2) / min(a2,b2)
+                a1 = (mask1 == 0).sum()
+                b1 = (mask1 == 1).sum()
+                r1 = max(a1,b1) / min(a1,b1)
 
-            d1 = abs(r - r1)
-            d2 = abs(r - r2)
+                a2 = (mask2 == 0).sum()
+                b2 = (mask2 == 1).sum()
+                r2 = max(a2,b2) / min(a2,b2)
 
-            mask = mask1 if d1 < d2 else mask2
-            mask = mask.astype(np.uint8) * 255
-            output_solver = output_solver1 if d1 < d2 else output_solver2
+                d1 = abs(r - r1)
+                d2 = abs(r - r2)
+
+                mask = mask1 if d1 < d2 else mask2
+                mask = mask.astype(np.uint8) * 255
+                output_solver = output_solver1 if d1 < d2 else output_solver2
 
             masks.append({
                 'mask' : mask,
