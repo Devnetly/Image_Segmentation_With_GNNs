@@ -2,6 +2,7 @@ from .utils import (
     graph_to_mask,
     adjacency_to_edge_list,
     seed_everything,
+    apply_crf
 )
 
 from .bilateral import bilateral_solver_output
@@ -14,5 +15,5 @@ from .evaluation import (
     pixel_wise_recall,
     pixel_wise_f1_score,
     compute_metrics,
-    mncut
+    mncut,
 )

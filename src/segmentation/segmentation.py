@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import sys
+import cv2
 sys.path.append('../..')
 from torch import optim, Tensor
 from dataclasses import dataclass, field
@@ -10,7 +11,7 @@ from tqdm.auto import tqdm
 from typing import Literal
 from src.models import GraphPool,ActivationType
 from src.feature_extraction import FeatureExtractor,FeatureExtractionConfig
-from src.utils import graph_to_mask, adjacency_to_edge_list, bilateral_solver_output
+from src.utils import graph_to_mask, adjacency_to_edge_list, bilateral_solver_output, apply_crf
 from typing import Optional,Literal
 
 SegmentationType = Literal['ncut','cc','dmon']
@@ -42,7 +43,7 @@ class Segmenter:
 
         normalize = config.segmentation_type != 'cc'
 
-        self.graph_pool1 = GraphPool(
+        self.graph_pool = GraphPool(
             activation=config.activation,
             num_layers=config.num_layers,
             conv_type=config.conv_type,
@@ -52,30 +53,8 @@ class Segmenter:
             normalize=normalize
         ).to(self.config.device) # Foreground/Background segmentation
 
-        self.graph_pool2 = GraphPool(
-            activation=config.activation,
-            num_layers=config.num_layers,
-            conv_type=config.conv_type,
-            in_features=self.feature_extractor.conf.dim,
-            hidden_dim=config.hidden_dim,
-            num_clusters=config.num_clusters,
-            normalize=normalize
-        ).to(self.config.device) # Foreground segmentation
-
-        self.graph_pool3 = GraphPool(
-            activation=config.activation,
-            num_layers=config.num_layers,
-            conv_type=config.conv_type,
-            in_features=self.feature_extractor.conf.dim,
-            hidden_dim=config.hidden_dim,
-            num_clusters=2,
-            normalize=normalize
-        ).to(self.config.device) # Background segmentation
-
     def reset_parameters(self) -> None:
-        self.graph_pool1.reset_parameters()
-        self.graph_pool2.reset_parameters()
-        self.graph_pool3.reset_parameters()
+        self.graph_pool.reset_parameters()
     
     def ncut_adjacency(self, features : Tensor) -> Tensor:
         
@@ -152,7 +131,6 @@ class Segmenter:
         features = features / torch.norm(features, dim=-1, p=2, keepdim=True)
         W = features @ features.t()
         W = W >= self.config.threshold
-        W = W | torch.eye(W.size(0), device=W.device, dtype=W.dtype)
         W = W.float()
 
         return W
@@ -180,8 +158,9 @@ class Segmenter:
         A : Tensor, 
         lr : float, 
         n_iters : int,
+        record_interval : Optional[int] = None,
         show_progress : bool = True
-    ) -> Tensor:
+    ) -> list[Tensor]:
 
         model.train()
 
@@ -191,7 +170,9 @@ class Segmenter:
 
         edge_index, edge_weight = adjacency_to_edge_list(A)
 
-        for _ in it:
+        results = []
+
+        for i in it:
 
             optimizer.zero_grad()
 
@@ -200,18 +181,25 @@ class Segmenter:
             loss.backward()
             optimizer.step()
 
+            if record_interval is not None and (i + 1) % record_interval == 0:
+                results.append(S.detach().cpu().clone())
+
             if show_progress:
                 it.set_postfix(loss=loss.item())
 
-        return S
+        if record_interval is None:
+            results.append(S.detach().cpu().clone())
+
+        return results
     
     def segment(self, 
         image : Image.Image,
         ignore : Optional[Tensor] = None,
+        record_interval : Optional[int] = None,
         lr : float = 0.001,
         n_iters : int = 30,
         show_progress : bool = True
-    ) -> dict:
+    ) -> dict | list[dict]:
         
         self.reset_parameters()
 
@@ -228,42 +216,76 @@ class Segmenter:
         X = X.to(self.config.device).clone()  
         A = A.to(self.config.device)
 
-        S = self.fit(self.graph_pool1, X, A, lr, n_iters, show_progress)
-        S = S.argmax(-1)
+        results = self.fit(self.graph_pool, X, A, lr, n_iters, record_interval, show_progress)
+        masks = []
 
+        for S in results:
 
-        if ignore is not None:
+            S = S.argmax(dim=-1)
 
-            C = torch.zeros(
-                size=(N,),
-                device=S.device,
-                dtype=S.dtype
+            if ignore is not None:
+
+                C = torch.zeros(
+                    size=(N,),
+                    device=S.device,
+                    dtype=S.dtype
+                )
+
+                C[ignore.to(X.device)] = S
+                
+                S = C
+
+            mask = graph_to_mask(
+                S=S,
+                processed_size=processed_image.shape[2:],
+                og_size=image.size,
+                cc=False, 
+                stride=self.config.feature_extractor_config.stride
             )
 
-            C[ignore.to(X.device)] = S
-            
-            S = C
+            output_solver1,mask1 = bilateral_solver_output(
+                np.array(image),
+                mask,
+                48,
+                8,
+                8
+            )
 
-        mask = graph_to_mask(
-            S=S,
-            processed_size=processed_image.shape[2:],
-            og_size=image.size,
-            cc=False, 
-            stride=self.config.feature_extractor_config.stride
-        )
+            output_solver2,mask2 = bilateral_solver_output(
+                np.array(image),
+                1 - mask,
+                48,
+                8,
+                8
+            )
 
-        _,mask = bilateral_solver_output(
-            np.array(image),
-            mask,
-            36,
-            6,
-            6
-        )
+            a = (S == 0).sum()
+            b = (S == 1).sum()
+            r = max(a,b) / min(a,b)
 
-        mask = mask.astype(np.uint8) * 255
+            a1 = (mask1 == 0).sum()
+            b1 = (mask1 == 1).sum()
+            r1 = max(a1,b1) / min(a1,b1)
 
-        return {
-            'mask' : mask,
-            'S' : S.detach().cpu().numpy(),
-            'A' : A.detach().cpu().numpy(),
-        }
+            a2 = (mask2 == 0).sum()
+            b2 = (mask2 == 1).sum()
+            r2 = max(a2,b2) / min(a2,b2)
+
+            d1 = abs(r - r1)
+            d2 = abs(r - r2)
+
+            mask = mask1 if d1 < d2 else mask2
+            mask = mask.astype(np.uint8) * 255
+            output_solver = output_solver1 if d1 < d2 else output_solver2
+
+            masks.append({
+                'mask' : mask,
+                'S' : S.detach().cpu().numpy(),
+                'A' : A.detach().cpu().numpy(),
+                'output_solver' : output_solver
+            })
+
+        if record_interval is None:
+            return masks[0]
+        
+        return masks

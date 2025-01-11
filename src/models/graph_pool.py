@@ -4,7 +4,6 @@ from torch.nn import functional as F
 from typing import Literal
 from .activation import Activation,ActivationType
 
-
 class GraphPool(nn.Module):
     
     def __init__(self, 

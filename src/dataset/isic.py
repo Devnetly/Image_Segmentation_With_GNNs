@@ -28,6 +28,9 @@ class ISICDataset(Dataset):
 
         return files
     
+    def get_filename(self, idx : int) -> str:
+        return self.files[idx]
+    
     def __len__(self) -> int:
         return len(self.files)
     

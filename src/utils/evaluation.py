@@ -58,6 +58,11 @@ def display_segmentation_results(
     
     _, axes = plt.subplots(1, 4, figsize=(15, 5))
     IoU = iou(mask, np.array(sample['mask']))
+    IoY_inv = iou(1 - mask, np.array(sample['mask']))
+
+    if IoY_inv > IoU:
+        mask = 1 - mask
+        IoU = IoY_inv
 
     print(f"IoU: {IoU:.3f}")
 
