@@ -21,7 +21,7 @@ class EMD6Dataset(Dataset):
         self.files = self._get_files()
 
     def get_filename(self, idx : int) -> str:
-        return os.path.basename(self.files[idx][0])
+        return os.path.basename(self.files[idx][0]).split('.')[0]
     
     def _get_files(self) -> list[tuple[str,str,int]]:
         

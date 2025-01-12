@@ -110,7 +110,7 @@ def evaluate(config: Config):
 
     it = tqdm(dataset)
 
-    os.makedirs(os.path.join(OUTPUTS_DIR, config.output_dir, config.dataset),exist_ok=True)
+    os.makedirs(os.path.join(OUTPUTS_DIR, config.dataset ,config.output_dir),exist_ok=True)
 
     RECORD_INTERVAL = 10
 
@@ -141,7 +141,7 @@ def evaluate(config: Config):
                 iou_score = iou_score_inv
 
             if j == len(results) - 1:
-                Image.fromarray(mask).save(os.path.join(OUTPUTS_DIR, config.output_dir, config.dataset, f'{dataset.get_filename(i)}.png'))
+                Image.fromarray(mask).save(os.path.join(OUTPUTS_DIR,config.dataset,config.output_dir,f'{dataset.get_filename(i)}.png'))
 
             dice_score = dice(mask, target)
 
@@ -152,9 +152,9 @@ def evaluate(config: Config):
             metrics['epoch'].append(j*RECORD_INTERVAL)
 
     metrics = pd.DataFrame(metrics)
-    metrics.to_csv(os.path.join(OUTPUTS_DIR,config.output_dir,'metrics.csv'),index=False)
+    metrics.to_csv(os.path.join(OUTPUTS_DIR,config.dataset,config.output_dir,'metrics.csv'),index=False)
 
-    with open(os.path.join(OUTPUTS_DIR, config.output_dir,'config.json'),'w') as f:
+    with open(os.path.join(OUTPUTS_DIR,config.dataset,config.output_dir,'config.json'),'w') as f:
         json.dump(asdict(config),f)
     
 if __name__ == '__main__':
@@ -177,7 +177,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default=Config.device)
     parser.add_argument('--lr', type=float, default=Config.lr)
     parser.add_argument('--n_iters', type=int, default=Config.n_iters)
-    parser.add_argument('--data_dir', type=str, default=Config.data_dir)
+    parser.add_argument('--dataset', type=str, default=Config.dataset)
     parser.add_argument('--output_dir', type=str, default=Config.output_dir)
 
     args = parser.parse_args()
