@@ -23,7 +23,11 @@ GRAPH NEURAL NETWORKS](https://arxiv.org/pdf/2405.06057v1) and [DeepCut: Unsuper
 
 ```sh
 cd src/segmentation
-python3 evaluate.py [-h] [--model_name MODEL_NAME] [--feature_type FEATURE_TYPE] [--layer LAYER] [--stride STRIDE] [--resize RESIZE] [--segmentation_type SEGMENTATION_TYPE] [--threshold THRESHOLD] [--alpha ALPHA] [--activation ACTIVATION] [--num_layers NUM_LAYERS] [--conv_type CONV_TYPE] [--hidden_dim HIDDEN_DIM] [--num_clusters NUM_CLUSTERS][--device DEVICE] [--lr LR] [--n_iters N_ITERS] [--dataset DATASET] [--output_dir OUTPUT_DIR]
+python3 evaluate.py [-h] [--model_name MODEL_NAME] [--feature_type FEATURE_TYPE] \
+[--layer LAYER] [--stride STRIDE] [--resize RESIZE] [--segmentation_type SEGMENTATION_TYPE] \
+[--threshold THRESHOLD] [--alpha ALPHA] [--activation ACTIVATION] [--num_layers NUM_LAYERS] \ 
+[--conv_type CONV_TYPE] [--hidden_dim HIDDEN_DIM] [--num_clusters NUM_CLUSTERS] \ 
+[--device DEVICE] [--lr LR] [--n_iters N_ITERS] [--dataset DATASET] [--output_dir OUTPUT_DIR]
 ```
 
 ### Demo
