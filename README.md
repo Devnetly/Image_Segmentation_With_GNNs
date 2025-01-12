@@ -63,7 +63,6 @@ python3 demo.py
 #### Example : 
 
 <img src="./figures/emd-demo.png" />
-<br />
 
 #### Results across the different combinations of losses/layers : 
 
